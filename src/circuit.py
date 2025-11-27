@@ -75,14 +75,22 @@ class GateOp:
 
     def __repr__(self):
         return self.label or self.name
+c = Ciruit(3)
 
+# 1) Bell pair
+c.add(GateOp("H",    [1]))        # t0
+c.add(GateOp("CNOT", [1, 2]))     # t1
 
-circuit = Ciruit(3)
-circuit.add(GateOp("H",    [0]))
-circuit.add(GateOp("CNOT", [0, 1]))
-circuit.add(GateOp("X",    [2]))
-circuit.add(GateOp("Z",    [1]))
-circuit.add(GateOp("CNOT", [0, 2]))
+# 2) Entangle message
+c.add(GateOp("CNOT", [0, 1]))     # t2
+c.add(GateOp("H",    [0]))        # t3
 
-print(circuit.grid)
-circuit.execute()
+# 3) Measurements
+c.add(GateOp("M",    [0]))        # t4
+c.add(GateOp("M",    [1]))        # (same or t5, depending on scheduler)
+
+# 4) Corrections — add AFTER measurements
+c.add(GateOp("Zc",   [2]))        # t5
+c.add(GateOp("Xc",   [2]))        # t6
+
+print(c.grid)
