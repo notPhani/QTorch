@@ -1,3 +1,4 @@
+from gates import Gates
 class Ciruit:
     def __init__(self, num_qubits):
         self.num_qubits = num_qubits
@@ -64,7 +65,9 @@ class Ciruit:
                 if g is not None and id(g) not in seen:
                     seen.add(id(g))
                     gates_t.append(g)
-            print(f"t={t}: {[g.label for g in gates_t]}")
+            for g in gates_t:
+                print(f"Executing {g} on qubits {g.qubits}")
+                
 
 class GateOp:
     """Class representing quantum gate operations."""
@@ -74,9 +77,10 @@ class GateOp:
         self.t = t
         self.depends_on = depends_on or []
         self.label = None  # filled by Circuit.add
-
     def __repr__(self):
         return self.label or self.name
+
+
 def draw_ascii(circ: Ciruit, show_t=True, min_width=5, pad=2):
     """
     ASCII renderer with dynamic cell width.
