@@ -204,12 +204,6 @@ _RYY_SPEC  = GateSpec("RYY",  2, 26, 1, _mat_RYY,
 _RZZ_SPEC  = GateSpec("RZZ",  2, 27, 1, _mat_RZZ,
     "Two-qubit ZZ interaction rotation by angle theta.")
 
-
-class Gates:
-    class I:    spec = _I_SPEC
-
-
-
 class Gates:
     class I:    spec = _I_SPEC
     class X:    spec = _X_SPEC
