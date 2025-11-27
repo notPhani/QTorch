@@ -1,26 +1,6 @@
-from dataclasses import dataclass
-from typing import Callable, Sequence, Optional, List
-from backend import StatevectorBackend
-import math
+from typing import List
 import torch
-from gates import *
-
-class GateOp:
-    """Quantum gate or special op in a circuit."""
-    def __init__(self, name: str, qubits: List[int],
-                 params: Optional[Sequence[float]] = None,
-                 depends_on: Optional[List["GateOp"]] = None,
-                 t: Optional[int] = None):
-        self.name = name
-        self.qubits = list(qubits)
-        self.params = list(params) if params is not None else []
-        self.depends_on = depends_on or []
-        self.t = t
-        self.label = None
-        self.spec = Gates.by_name.get(name, None)
-
-    def __repr__(self):
-        return self.label or self.name
+from gates import GateOp, Gates
 
 class Circuit:
     def __init__(self, num_qubits: int):
@@ -72,8 +52,10 @@ class Circuit:
         return t
 
     def execute(self, backend) -> torch.Tensor:
+        """Execute this circuit on the given backend."""
         if backend.num_qubits != self.num_qubits:
             raise ValueError("Backend qubit count mismatch")
+        
         depth = max((len(row) for row in self.grid), default=0)
         for t in range(depth):
             seen = set()
@@ -87,6 +69,5 @@ class Circuit:
                     gates_t.append(g)
             for g in gates_t:
                 backend.apply_gate(g)
+        
         return backend.state
-    
-   

@@ -1,7 +1,9 @@
-from gates import Gates, GateOp
 import torch
-from typing import Callable, Sequence, Optional, List
+from typing import Sequence
+from gates import GateOp, Gates
+
 DTYPE = torch.complex64
+
 class StatevectorBackend:
     def __init__(self, num_qubits: int, device: str = None):
         if device is None:
@@ -31,6 +33,7 @@ class StatevectorBackend:
         self._apply_k_qubit(U, gate_op.qubits)
 
     def _apply_k_qubit(self, U: torch.Tensor, targets: Sequence[int]):
+        """Apply k-qubit gate U (2^k x 2^k) on given target qubits."""
         n = self.num_qubits
         k = len(targets)
         assert U.shape == (1 << k, 1 << k)
@@ -50,6 +53,7 @@ class StatevectorBackend:
         self.state = psi.reshape(-1)
 
     def _apply_measure(self, q: int):
+        """Z-basis measurement with collapse."""
         n = self.num_qubits
         psi = self.state.view([2] * n)
         perm = [i for i in range(n) if i != q] + [q]
@@ -58,7 +62,6 @@ class StatevectorBackend:
 
         probs = (psi.conj() * psi).sum(dim=0).real
         p0 = float(probs[0])
-        # sample outcome
         r = torch.rand((), device=self.device)
         outcome = 0 if r < p0 else 1
 
@@ -78,8 +81,7 @@ class StatevectorBackend:
         self.creg[q] = outcome
 
     def _apply_classical_pauli(self, target_q: int, which: str, depends_on):
-        # expect depends_on = [m0_gate, m1_gate] in that order
-        # and those gates measured qubits 0 and 1 respectively
+        """Apply X or Z conditioned on measurement outcomes."""
         if len(depends_on) != 2:
             return
 
@@ -102,15 +104,9 @@ class StatevectorBackend:
         if not fire:
             return
 
-        from __main__ import Gates  # or from .gates import Gates
-        if which == "X":
-            spec = Gates.by_name["X"]
-        else:
-            spec = Gates.by_name["Z"]
-
+        spec = Gates.by_name[which]
         U = spec.matrix_fn(None).to(self.device)
         self._apply_k_qubit(U, [target_q])
-
 
     def set_qubit_state(self, q: int, alpha: complex, beta: complex):
         """
@@ -118,21 +114,32 @@ class StatevectorBackend:
         Only correct if the current state is |0...0>.
         """
         n = self.num_qubits
-        assert torch.allclose(self.state, torch.eye(1 << n, dtype=DTYPE, device=self.device)[0])
         vec = torch.zeros(1 << n, dtype=DTYPE, device=self.device)
-        # index of |1 0 0 ...> when q is 0 = most significant:
         for bit in (0, 1):
             amp = alpha if bit == 0 else beta
             if amp == 0:
                 continue
-            # build basis index with that bit on position q
             idx = 0
             for j in range(n):
                 idx <<= 1
                 idx |= (1 if (j == q and bit == 1) else 0)
             vec[idx] = amp
-        # normalize
         norm = torch.linalg.norm(vec)
         if norm > 0:
             vec = vec / norm
         self.state = vec
+
+    def set_state_vector(self, state: torch.Tensor):
+        """
+        Set the state vector directly.
+        state: complex tensor of shape (2**num_qubits,) or (2**num_qubits, 1).
+        It will be normalized and moved to the backend's device / dtype.
+        """
+        state = state.to(self.device, dtype=DTYPE).reshape(-1)
+        dim = 1 << self.num_qubits
+        if state.shape != (dim,):
+            raise ValueError(f"State vector must have shape ({dim},), got {tuple(state.shape)}")
+        norm = torch.linalg.norm(state)
+        if norm == 0:
+            raise ValueError("Cannot set state to zero vector")
+        self.state = state / norm

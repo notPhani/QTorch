@@ -5,6 +5,15 @@ import torch
 
 DTYPE = torch.complex64
 
+@dataclass(frozen=True)
+class GateSpec:
+    name: str
+    arity: int
+    op_code: int
+    param_count: int          # 0 = fixed, >0 = number of parameters
+    matrix_fn: Callable[[Optional[Sequence[float]]], torch.Tensor]
+    description: str
+
 class GateOp:
     """Quantum gate or special op in a circuit."""
     def __init__(self, name: str, qubits: List[int],
@@ -17,20 +26,13 @@ class GateOp:
         self.depends_on = depends_on or []
         self.t = t
         self.label = None
-        self.spec = Gates.by_name.get(name, None)
-
+        # Forward reference resolved after Gates is defined
+        self.spec = None
+        
     def __repr__(self):
         return self.label or self.name
 
-@dataclass(frozen=True)
-class GateSpec:
-    name: str
-    arity: int
-    op_code: int
-    param_count: int          # 0 = fixed, >0 = number of parameters
-    matrix_fn: Callable[[Optional[Sequence[float]]], torch.Tensor]
-    description: str
-#-----------------------------------------------Single-qubit gates-----------------------------------------------
+# -------- Single-qubit gates --------
 def _mat_I(_=None):
     return torch.eye(2, dtype=DTYPE)
 
@@ -60,14 +62,16 @@ def _mat_Sdg(_=None):
                          [0, -1j]], dtype=DTYPE)
 
 def _mat_T(_=None):
+    phase = math.cos(math.pi/4) + 1j * math.sin(math.pi/4)
     return torch.tensor([[1, 0],
-                         [0, torch.exp(1j * math.pi/4)]], dtype=DTYPE)
+                         [0, phase]], dtype=DTYPE)
 
 def _mat_Tdg(_=None):
+    phase = math.cos(-math.pi/4) + 1j * math.sin(-math.pi/4)
     return torch.tensor([[1, 0],
-                         [0, torch.exp(-1j * math.pi/4)]], dtype=DTYPE)
+                         [0, phase]], dtype=DTYPE)
 
-#-----------------------------------------------Parameterized single-qubit gates-----------------------------------------------
+# -------- Parameterized single-qubit gates --------
 def _mat_Rx(params):
     (theta,) = params
     c = math.cos(theta/2)
@@ -84,15 +88,18 @@ def _mat_Ry(params):
 
 def _mat_Rz(params):
     (theta,) = params
-    return torch.tensor([[torch.exp(-0.5j*theta), 0],
-                         [0, torch.exp(0.5j*theta)]], dtype=DTYPE)
+    e_minus = math.cos(-theta/2) + 1j * math.sin(-theta/2)
+    e_plus = math.cos(theta/2) + 1j * math.sin(theta/2)
+    return torch.tensor([[e_minus, 0],
+                         [0, e_plus]], dtype=DTYPE)
 
 def _mat_Phase(params):
     (phi,) = params
+    phase = math.cos(phi) + 1j * math.sin(phi)
     return torch.tensor([[1, 0],
-                         [0, torch.exp(1j*phi)]], dtype=DTYPE)
+                         [0, phase]], dtype=DTYPE)
 
-#-----------------------------------------------Two-qubit gates-----------------------------------------------
+# -------- Two-qubit gates --------
 def _mat_CNOT(_=None):
     return torch.tensor([
         [1,0,0,0],
@@ -124,11 +131,11 @@ def _mat_iSWAP(_=None):
         [0,1j,0,0],
         [0,0,0,1],
     ], dtype=DTYPE)
-#-----------------------------------------------Parameterized two-qubit gates-----------------------------------------------
+
+# -------- Parameterized two-qubit gates --------
 def _mat_CP(params):
     (phi,) = params
-    phi_t = torch.tensor(phi, dtype=torch.float32)
-    phase = torch.exp(1j * phi_t)  # now input is a Tensor
+    phase = math.cos(phi) + 1j * math.sin(phi)
     return torch.tensor([
         [1, 0, 0, 0],
         [0, 1, 0, 0],
@@ -160,17 +167,16 @@ def _mat_RYY(params):
 
 def _mat_RZZ(params):
     (theta,) = params
-    e = torch.exp(-1j * theta/2)
-    ep = torch.exp(1j * theta/2)
+    e_minus = math.cos(-theta/2) + 1j * math.sin(-theta/2)
+    e_plus = math.cos(theta/2) + 1j * math.sin(theta/2)
     return torch.tensor([
-        [e, 0, 0, 0],
-        [0, ep, 0, 0],
-        [0, 0, ep, 0],
-        [0, 0, 0, e],
+        [e_minus, 0, 0, 0],
+        [0, e_plus, 0, 0],
+        [0, 0, e_plus, 0],
+        [0, 0, 0, e_minus],
     ], dtype=DTYPE)
 
-
-# 1-qubit fixed
+# -------- Gate specs --------
 _I_SPEC    = GateSpec("I",    1,  0, 0, _mat_I,
     "Identity gate; leaves the qubit state unchanged.")
 _X_SPEC    = GateSpec("X",    1,  1, 0, _mat_X,
@@ -190,8 +196,6 @@ _T_SPEC    = GateSpec("T",    1,  7, 0, _mat_T,
 _TDG_SPEC  = GateSpec("Tdg",  1,  8, 0, _mat_Tdg,
     "Inverse T gate; -π/4 phase on |1>.")
 
-
-# 1-qubit param
 _RX_SPEC   = GateSpec("Rx",   1, 10, 1, _mat_Rx,
     "Rotation around the X axis by angle theta.")
 _RY_SPEC   = GateSpec("Ry",   1, 11, 1, _mat_Ry,
@@ -201,8 +205,6 @@ _RZ_SPEC   = GateSpec("Rz",   1, 12, 1, _mat_Rz,
 _P_SPEC    = GateSpec("P",    1, 13, 1, _mat_Phase,
     "Single-qubit phase shift by angle phi (equivalent to Rz up to global phase).")
 
-
-# 2-qubit fixed
 _CNOT_SPEC = GateSpec("CNOT", 2, 20, 0, _mat_CNOT,
     "Controlled-NOT gate; flips the target qubit when the control is |1>.")
 _CZ_SPEC   = GateSpec("CZ",   2, 21, 0, _mat_CZ,
@@ -212,8 +214,6 @@ _SWAP_SPEC = GateSpec("SWAP", 2, 22, 0, _mat_SWAP,
 _ISWAP_SPEC= GateSpec("iSWAP",2, 23, 0, _mat_iSWAP,
     "iSWAP gate; swaps |01> and |10> and adds a phase of i.")
 
-
-# 2-qubit param
 _CP_SPEC   = GateSpec("CP",   2, 24, 1, _mat_CP,
     "Controlled phase gate; adds a phase e^{i phi} to |11>.")
 _RXX_SPEC  = GateSpec("RXX",  2, 25, 1, _mat_RXX,
@@ -250,29 +250,24 @@ class Gates:
     class RZZ:  spec = _RZZ_SPEC
 
     by_name = {
-        "I": _I_SPEC,
-        "X": _X_SPEC,
-        "Y": _Y_SPEC,
-        "Z": _Z_SPEC,
-        "H": _H_SPEC,
-        "S": _S_SPEC,
-        "Sdg": _SDG_SPEC,
-        "T": _T_SPEC,
-        "Tdg": _TDG_SPEC,
-        "Rx": _RX_SPEC,
-        "Ry": _RY_SPEC,
-        "Rz": _RZ_SPEC,
-        "P": _P_SPEC,
-        "CNOT": _CNOT_SPEC,
-        "CZ": _CZ_SPEC,
-        "SWAP": _SWAP_SPEC,
+        "I": _I_SPEC,   "X": _X_SPEC,   "Y": _Y_SPEC,   "Z": _Z_SPEC,
+        "H": _H_SPEC,   "S": _S_SPEC,   "Sdg": _SDG_SPEC,
+        "T": _T_SPEC,   "Tdg": _TDG_SPEC,
+        "Rx": _RX_SPEC, "Ry": _RY_SPEC, "Rz": _RZ_SPEC, "P": _P_SPEC,
+        "CNOT": _CNOT_SPEC, "CZ": _CZ_SPEC, "SWAP": _SWAP_SPEC,
         "iSWAP": _ISWAP_SPEC,
-        "CP": _CP_SPEC,
-        "RXX": _RXX_SPEC,
-        "RYY": _RYY_SPEC,
-        "RZZ": _RZZ_SPEC,
+        "CP": _CP_SPEC, "RXX": _RXX_SPEC, "RYY": _RYY_SPEC, "RZZ": _RZZ_SPEC,
     }
+    
+    by_opcode = {g.op_code: g for g in by_name.values()}
 
-    by_opcode = {
-        g.op_code: g for g in by_name.values()
-    }
+# Now resolve spec for GateOp dynamically
+def _resolve_gate_spec(name: str):
+    return Gates.by_name.get(name, None)
+
+# Patch GateOp.__init__ to use the resolver
+_original_init = GateOp.__init__
+def _patched_init(self, name, qubits, params=None, depends_on=None, t=None):
+    _original_init(self, name, qubits, params, depends_on, t)
+    self.spec = _resolve_gate_spec(name)
+GateOp.__init__ = _patched_init
