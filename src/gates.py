@@ -1,9 +1,26 @@
 from dataclasses import dataclass
-from typing import Callable, Sequence, Optional
+from typing import Callable, Sequence, Optional, List
 import math
 import torch
 
 DTYPE = torch.complex64
+
+class GateOp:
+    """Quantum gate or special op in a circuit."""
+    def __init__(self, name: str, qubits: List[int],
+                 params: Optional[Sequence[float]] = None,
+                 depends_on: Optional[List["GateOp"]] = None,
+                 t: Optional[int] = None):
+        self.name = name
+        self.qubits = list(qubits)
+        self.params = list(params) if params is not None else []
+        self.depends_on = depends_on or []
+        self.t = t
+        self.label = None
+        self.spec = Gates.by_name.get(name, None)
+
+    def __repr__(self):
+        return self.label or self.name
 
 @dataclass(frozen=True)
 class GateSpec:
@@ -110,11 +127,13 @@ def _mat_iSWAP(_=None):
 #-----------------------------------------------Parameterized two-qubit gates-----------------------------------------------
 def _mat_CP(params):
     (phi,) = params
+    phi_t = torch.tensor(phi, dtype=torch.float32)
+    phase = torch.exp(1j * phi_t)  # now input is a Tensor
     return torch.tensor([
-        [1,0,0,0],
-        [0,1,0,0],
-        [0,0,1,0],
-        [0,0,0, torch.exp(1j*phi)],
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, phase],
     ], dtype=DTYPE)
 
 def _mat_RXX(params):
