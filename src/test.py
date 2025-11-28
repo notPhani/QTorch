@@ -44,11 +44,11 @@ def build_test_circuit(num_qubits):
         circuit.add(GateOp("CNOT", [i, i+1]))
     
     # Parametric ansatz layer
-    import math
+    '''
     for i in range(num_qubits):
         circuit.add(GateOp("Rx", [i], params=[0.5]))
         circuit.add(GateOp("Ry", [i], params=[1.2]))
-    
+    '''
     for i in range(num_qubits - 1):
         circuit.add(GateOp("CNOT", [i, i+1]))
     
