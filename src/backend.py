@@ -49,6 +49,7 @@ class StatevectorBackend:
         if self.persistent_data:
             self._precompute_fixed_gates()
             self._setup_parametric_cache(parametric_cache_size)
+            self._apply_k_qubit = torch.compile(self._apply_k_qubit)
         else:
             if self.verbose:
                 print(f"[Backend] Caching DISABLED - running baseline mode")
