@@ -1,163 +1,85 @@
-import math
-import random
-import torch
 import time
+import torch
 from circuit import Circuit
 from gates import GateOp
 from backend import StatevectorBackend
 
-def build_random_circuit(n_qubits, depth, seed=42):
-    """
-    Build a brick-wall random circuit:
-    - Each layer alternates between even and odd pairs
-    - Random single-qubit rotations between 2q layers
-    """
-    random.seed(seed)
-    c = Circuit(n_qubits)
+def benchmark_circuit(circuit, num_qubits, persistent_data, warmup=2, runs=10):
+    """Run a circuit multiple times and measure average performance."""
     
-    for d in range(depth):
-        # Layer 1: random single-qubit rotations on all qubits
-        for q in range(n_qubits):
-            gate = random.choice(["Rx", "Ry", "Rz"])
-            angle = random.uniform(0, 2 * math.pi)
-            c.add(GateOp(gate, [q], params=[angle]))
-        
-        # Layer 2: entangling layer (brick pattern)
-        if d % 2 == 0:
-            # even pairs: (0,1), (2,3), (4,5), ...
-            pairs = [(i, i+1) for i in range(0, n_qubits-1, 2)]
-        else:
-            # odd pairs: (1,2), (3,4), (5,6), ...
-            pairs = [(i, i+1) for i in range(1, n_qubits-1, 2)]
-        
-        for q1, q2 in pairs:
-            # mix of CNOT and CZ for variety
-            gate = random.choice(["CNOT", "CZ"])
-            c.add(GateOp(gate, [q1, q2]))
+    # Create backend with specified mode
+    backend = StatevectorBackend(num_qubits, device='cuda', persistent_data=persistent_data)
     
-    return c
+    # Warmup runs (for GPU kernel compilation, cache warming)
+    for _ in range(warmup):
+        backend_copy = StatevectorBackend(num_qubits, device='cuda', persistent_data=persistent_data)
+        circuit.execute(backend_copy)
+    
+    # Timed runs
+    times = []
+    for _ in range(runs):
+        backend_copy = StatevectorBackend(num_qubits, device='cuda', persistent_data=persistent_data)
+        
+        start = time.perf_counter()
+        final_state = circuit.execute(backend_copy)
+        torch.cuda.synchronize()  # Wait for GPU
+        elapsed = time.perf_counter() - start
+        
+        times.append(elapsed)
+    
+    avg_time = sum(times) / len(times)
+    std_time = (sum((t - avg_time)**2 for t in times) / len(times)) ** 0.5
+    
+    return avg_time, std_time, final_state
 
-c = build_random_circuit(n_qubits=2, depth=100)
+# Build a test circuit
+def build_test_circuit(num_qubits):
+    circuit = Circuit(num_qubits)
+    
+    # Clifford encoding layer
+    for i in range(num_qubits):
+        circuit.add(GateOp("H", [i]))
+    
+    for i in range(num_qubits - 1):
+        circuit.add(GateOp("CNOT", [i, i+1]))
+    
+    # Parametric ansatz layer
+    import math
+    for i in range(num_qubits):
+        circuit.add(GateOp("Rx", [i], params=[0.5]))
+        circuit.add(GateOp("Ry", [i], params=[1.2]))
+    
+    for i in range(num_qubits - 1):
+        circuit.add(GateOp("CNOT", [i, i+1]))
+    
+    return circuit
 
-# Count gates
-total_gates = sum(len([g for g in row if g is not None]) for row in c.grid)
-print(f"Total gate operations: {total_gates}")
-print(f"Circuit depth: {max(len(row) for row in c.grid)}")
+# Run benchmarks
+num_qubits = 20
+circuit = build_test_circuit(num_qubits)
 
-# Execute
-backend = StatevectorBackend(2, device="cuda")
-print("\nExecuting...")
-start = time.time()
-final_state = c.execute(backend)
-elapsed = time.time() - start
+print("=" * 60)
+print("BASELINE (persistent_data=False)")
+print("=" * 60)
+baseline_time, baseline_std, baseline_state = benchmark_circuit(
+    circuit, num_qubits, persistent_data=False, runs=10
+)
+print(f"Average time: {baseline_time*1000:.2f} ± {baseline_std*1000:.2f} ms")
+print(f"State norm: {torch.linalg.norm(baseline_state):.8f}")
 
-print(f"Execution time: {elapsed:.2f} seconds")
-print(f"Final state shape: {final_state.shape}")
-print(f"State norm: {torch.linalg.norm(final_state).item():.10f}")
-print(f"Nonzero amplitudes: {torch.count_nonzero(torch.abs(final_state) > 1e-10).item()}")
+print("\n" + "=" * 60)
+print("OPTIMIZED (persistent_data=True)")
+print("=" * 60)
+optimized_time, optimized_std, optimized_state = benchmark_circuit(
+    circuit, num_qubits, persistent_data=True, runs=10
+)
+print(f"Average time: {optimized_time*1000:.2f} ± {optimized_std*1000:.2f} ms")
+print(f"State norm: {torch.linalg.norm(optimized_state):.8f}")
 
-c = Circuit(3)
-c.add(GateOp("H", [0]))
-c.add(GateOp("CNOT", [0, 1]))
-c.add(GateOp("CNOT", [1, 2]))
-
-backend = StatevectorBackend(3)
-c.execute(backend)
-print(backend.state)
-
-c = Circuit(2)
-c.add(GateOp("H", [0]))
-c.add(GateOp("CNOT", [0, 1]))
-# now decode
-c.add(GateOp("CNOT", [0, 1]))
-c.add(GateOp("H", [0]))
-
-backend = StatevectorBackend(2)
-c.execute(backend)
-print(backend.state)
-
-c = Circuit(3)
-
-# Prepare |ψ>
-c.add(GateOp("H", [0]))
-c.add(GateOp("P", [0], params={math.pi/2}))   # phase to create i
-
-# Bell pair
-c.add(GateOp("H", [1]))
-c.add(GateOp("CNOT", [1, 2]))
-
-# Entangle ψ with Alice's half
-c.add(GateOp("CNOT", [0, 1]))
-c.add(GateOp("H", [0]))
-
-# Measure Alice
-m0 = GateOp("M", [0])
-m1 = GateOp("M", [1])
-c.add(m0)
-c.add(m1)
-
-# Conditioned corrections
-c.add(GateOp("Zc", [2], depends_on=[m0, m1]))
-c.add(GateOp("Xc", [2], depends_on=[m0, m1]))
-
-backend = StatevectorBackend(3)
-c.execute(backend)
-print(backend.state)
-
-c = Circuit(3)
-
-# Forward QFT
-c.add(GateOp("H", [0]))
-c.add(GateOp("CP", [1, 0], params={math.pi/2}))
-c.add(GateOp("CP", [2, 0], params={math.pi/4}))
-
-c.add(GateOp("H", [1]))
-c.add(GateOp("CP", [2, 1], params={math.pi/2}))
-
-c.add(GateOp("H", [2]))
-c.add(GateOp("SWAP", [0, 2]))
-
-# Inverse QFT (QFT†)
-c.add(GateOp("SWAP", [0, 2]))
-c.add(GateOp("H", [2]))
-c.add(GateOp("CP†", [2, 1], params={-math.pi/2}))
-c.add(GateOp("H", [1]))
-c.add(GateOp("CP†", [2, 0], params={-math.pi/4}))
-c.add(GateOp("CP†", [1, 0], params={-math.pi/2}))
-c.add(GateOp("H", [0]))
-
-backend = StatevectorBackend(3)
-c.execute(backend)
-print(backend.state)
-
-import math
-
-c = Circuit(3)
-
-# Uniform superposition
-for q in range(3):
-    c.add(GateOp("H", [q]))
-
-# Oracle that flips phase of |101>
-c.add(GateOp("X", [0]))
-c.add(GateOp("X", [2]))
-c.add(GateOp("CCZ", [0,1,2]))   # or use decomposed version
-c.add(GateOp("X", [0]))
-c.add(GateOp("X", [2]))
-
-# Diffusion
-for q in range(3):
-    c.add(GateOp("H", [q]))
-for q in range(3):
-    c.add(GateOp("X", [q]))
-
-c.add(GateOp("CCZ", [0,1,2]))
-
-for q in range(3):
-    c.add(GateOp("X", [q]))
-for q in range(3):
-    c.add(GateOp("H", [q]))
-
-backend = StatevectorBackend(3)
-c.execute(backend)
-print(backend.state)
+state_diff = torch.linalg.norm(baseline_state - optimized_state)
+print("\n" + "=" * 60)
+print("COMPARISON")
+print("=" * 60)
+print(f"Speedup: {baseline_time / optimized_time:.2f}×")
+print(f"State difference: {state_diff:.2e} (should be ~0)")
+print(f"Correctness: {'✓ PASS' if state_diff < 1e-6 else '✗ FAIL'}")
