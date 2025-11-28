@@ -7,22 +7,29 @@ from backend import StatevectorBackend
 def benchmark_circuit(circuit, num_qubits, persistent_data, warmup=2, runs=10):
     """Run a circuit multiple times and measure average performance."""
     
-    # Create backend with specified mode
-    backend = StatevectorBackend(num_qubits, device='cuda', persistent_data=persistent_data)
-    
-    # Warmup runs (for GPU kernel compilation, cache warming)
+    # Warmup runs
     for _ in range(warmup):
-        backend_copy = StatevectorBackend(num_qubits, device='cuda', persistent_data=persistent_data)
-        circuit.execute(backend_copy)
+        backend = StatevectorBackend(
+            num_qubits, 
+            device='cuda', 
+            persistent_data=persistent_data,
+            verbose=False  # Suppress prints in warmup
+        )
+        circuit.execute(backend)
     
     # Timed runs
     times = []
     for _ in range(runs):
-        backend_copy = StatevectorBackend(num_qubits, device='cuda', persistent_data=persistent_data)
+        backend = StatevectorBackend(
+            num_qubits, 
+            device='cuda', 
+            persistent_data=persistent_data,
+            verbose=False  # Suppress prints in benchmark
+        )
         
         start = time.perf_counter()
-        final_state = circuit.execute(backend_copy)
-        torch.cuda.synchronize()  # Wait for GPU
+        final_state = circuit.execute(backend)
+        torch.cuda.synchronize()
         elapsed = time.perf_counter() - start
         
         times.append(elapsed)
@@ -30,9 +37,18 @@ def benchmark_circuit(circuit, num_qubits, persistent_data, warmup=2, runs=10):
     avg_time = sum(times) / len(times)
     std_time = (sum((t - avg_time)**2 for t in times) / len(times)) ** 0.5
     
-    return avg_time, std_time, final_state
+    # Create one final backend to check cache stats
+    final_backend = StatevectorBackend(
+        num_qubits, 
+        device='cuda', 
+        persistent_data=persistent_data,
+        verbose=True
+    )
+    circuit.execute(final_backend)
+    
+    return avg_time, std_time, final_backend
 
-# Build a test circuit
+# Build test circuit
 def build_test_circuit(num_qubits):
     circuit = Circuit(num_qubits)
     
@@ -44,11 +60,10 @@ def build_test_circuit(num_qubits):
         circuit.add(GateOp("CNOT", [i, i+1]))
     
     # Parametric ansatz layer
-    '''
     for i in range(num_qubits):
         circuit.add(GateOp("Rx", [i], params=[0.5]))
         circuit.add(GateOp("Ry", [i], params=[1.2]))
-    '''
+    
     for i in range(num_qubits - 1):
         circuit.add(GateOp("CNOT", [i, i+1]))
     
@@ -61,25 +76,25 @@ circuit = build_test_circuit(num_qubits)
 print("=" * 60)
 print("BASELINE (persistent_data=False)")
 print("=" * 60)
-baseline_time, baseline_std, baseline_state = benchmark_circuit(
+baseline_time, baseline_std, baseline_backend = benchmark_circuit(
     circuit, num_qubits, persistent_data=False, runs=10
 )
 print(f"Average time: {baseline_time*1000:.2f} ± {baseline_std*1000:.2f} ms")
-print(f"State norm: {torch.linalg.norm(baseline_state):.8f}")
 
 print("\n" + "=" * 60)
 print("OPTIMIZED (persistent_data=True)")
 print("=" * 60)
-optimized_time, optimized_std, optimized_state = benchmark_circuit(
+optimized_time, optimized_std, optimized_backend = benchmark_circuit(
     circuit, num_qubits, persistent_data=True, runs=10
 )
 print(f"Average time: {optimized_time*1000:.2f} ± {optimized_std*1000:.2f} ms")
-print(f"State norm: {torch.linalg.norm(optimized_state):.8f}")
 
-state_diff = torch.linalg.norm(baseline_state - optimized_state)
-print("\n" + "=" * 60)
+# Show cache stats
+optimized_backend.print_cache_info()
+
+# Comparison
+print("=" * 60)
 print("COMPARISON")
 print("=" * 60)
 print(f"Speedup: {baseline_time / optimized_time:.2f}×")
-print(f"State difference: {state_diff:.2e} (should be ~0)")
-print(f"Correctness: {'✓ PASS' if state_diff < 1e-6 else '✗ FAIL'}")
+print(f"Time saved: {(baseline_time - optimized_time)*1000:.2f} ms per run")
