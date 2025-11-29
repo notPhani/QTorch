@@ -1,12 +1,28 @@
-## Table of Contents
-- [What is QtorchX?](#what-is-qtorchx)
-- [The Noise Equation](#reaction-diffusion-noise-dynamics-on-quantum-registers)
-- [Lindblad Derivation](#-why-this-is-actually-quantum-noise-lindblad-connection)
-- [Visualization](#-teleportation-noise-propagation)
-- [Gate Fusion](#-noise-retained-gate-fusion)
-- [Benchmarks](#-benchmark-summary)
-- [Roadmap](#-whats-next)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.9%2B-blue" alt="Python">
+  <img src="https://img.shields.io/badge/License-Apache_2.0-green" alt="License">
+  <img src="https://img.shields.io/badge/Status-Research-orange" alt="Status">
+  <img src="https://img.shields.io/badge/Framework-PyTorch-red" alt="Framework">
+</p>
 
+<h1 align="center">QtorchX</h1>
+
+<h3 align="center">Reaction-Diffusion Noise Dynamics for NISQ-Era Quantum Machine Learning</h3>
+
+<p align="center">
+  <b>Physically realistic noise simulation that actually matches real quantum hardware</b>
+</p>
+
+<p align="center">
+  <a href="#-what-is-qtorchx">What is QtorchX?</a> •
+  <a href="#-the-noise-equation">Noise Equation</a> •
+  <a href="#-derivation">Lindblad Derivation</a> •
+  <a href="#-visualization">Visualization</a> •
+  <a href="#-gate-fusion">Gate Fusion</a> •
+  <a href="#-benchmarks">Benchmarks</a>
+</p>
+
+---
 **What is QtorchX?**
 
 QtorchX is a noise-aware quantum simulation research framework designed for the NISQ era.
