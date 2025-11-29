@@ -395,7 +395,7 @@ for QML workloads while retaining physical structure.
 **Result:** $10^{6\times}$ speedup with <1% accuracy loss for QML-relevant observables.
 ---
 
-## 📊 Teleportation Noise Propagation
+##  Teleportation Noise Propagation
 
 To validate that the reaction–diffusion φ-model produces physically consistent behavior, we simulate a standard **3-qubit quantum teleportation** circuit and record the noise field $\phi_i(t)$ throughout the computation. The resulting heatmap (Fig. below) encodes qubit index on the vertical axis and circuit timestep on the horizontal axis. Color intensity corresponds to the magnitude of the local noise field.
 
@@ -422,7 +422,7 @@ This confirms that the φ-model produces **hardware-realistic noise propagation*
 * Long-time behavior relaxes to Boltzmann equilibrium
 
 ---
-## ⚙️ Noise-Retained Gate Fusion
+## Noise-Retained Gate Fusion
 
 Compiler optimizations such as **gate fusion** reduce circuit depth and improve performance.
 However, naive fusion assumes that noise is **independent per gate**.
@@ -437,7 +437,7 @@ To study this, we derived an **N-step exact fused update** of the base model:
 $$\phi_i(t+1) = (\alpha - \lambda)\phi_i(t) + \lambda\phi_i^{(\mathrm{eq})}(T) + \beta \sum_j w_{ij}\phi_j(t) + \gamma G_i(t) + \mu M_i(t) + \rho H_i(\phi_i(t)) + \sigma_i(t)\eta_i(t)$$
 ---
 
-### 📌 Exact N-Gate Fusion Expression
+###  Exact N-Gate Fusion Expression
 
 Assuming neighbors remain constant over the fusion interval:
 
@@ -459,7 +459,7 @@ and is **mathematically correct** under its assumptions.
 
 ---
 
-## ❌ Why This Formula Failed in Practice
+##  Why This Formula Failed in Practice
 
 We found **~7–18% noise error** in realistic multi-qubit circuits.
 
@@ -499,7 +499,7 @@ Errors observed:
 
 ---
 
-## 🧠 Final Solution: Decoupled Noise-Retained Fusion
+##  Final Solution: Decoupled Noise-Retained Fusion
 
 We separate:
 
@@ -541,7 +541,7 @@ QtorchX includes circuit-level optimizations designed to accelerate simulation w
 
 ---
 
-## 🧪 Benchmark Summary
+##  Benchmark Summary
 
 | Method               | Noise Error | State Error |  Speedup |
 | -------------------- | ----------: | ----------: | -------: |
@@ -553,7 +553,7 @@ QtorchX includes circuit-level optimizations designed to accelerate simulation w
 
 ---
 
-## 🚀 What’s Next
+##  What’s Next
 
 Staged roadmap:
 
@@ -566,7 +566,7 @@ Staged roadmap:
 > Next milestone: **full QML usability with real-noise gradients**.
 
 ---
-## 📜 License
+##  License
 
 **Apache License 2.0**
 
