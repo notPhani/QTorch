@@ -1,3 +1,12 @@
+## Table of Contents
+- [What is QtorchX?](#what-is-qtorchx)
+- [The Noise Equation](#reaction-diffusion-noise-dynamics-on-quantum-registers)
+- [Lindblad Derivation](#-why-this-is-actually-quantum-noise-lindblad-connection)
+- [Visualization](#-teleportation-noise-propagation)
+- [Gate Fusion](#-noise-retained-gate-fusion)
+- [Benchmarks](#-benchmark-summary)
+- [Roadmap](#-whats-next)
+
 **What is QtorchX?**
 
 QtorchX is a noise-aware quantum simulation research framework designed for the NISQ era.
