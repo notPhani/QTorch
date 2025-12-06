@@ -265,7 +265,6 @@ class Gates:
 def _resolve_gate_spec(name: str):
     return Gates.by_name.get(name, None)
 
-# Patch GateOp.__init__ to use the resolver
 _original_init = GateOp.__init__
 def _patched_init(self, name, qubits, params=None, depends_on=None, t=None):
     _original_init(self, name, qubits, params, depends_on, t)
