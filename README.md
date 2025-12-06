@@ -424,7 +424,7 @@ for QML workloads while retaining physical structure.
 
 To validate that the reaction–diffusion φ-model produces physically consistent behavior, we simulate a standard **3-qubit quantum teleportation** circuit and record the noise field $\phi_i(t)$ throughout the computation. The resulting heatmap (Fig. below) encodes qubit index on the vertical axis and circuit timestep on the horizontal axis. Color intensity corresponds to the magnitude of the local noise field.
 
-//image
+![Image showing the Heat Map created by the Phi function on a quantum teleportation circuit](https://github.com/notPhani/QTorch/blob/main/src/Spatial-temporal_noise_field_evolution_during_quantum_teleportation_showing_hotspots_at_measurements%2C_diffusion_between_coupled_qubits%2C_and_gradual_relaxation.png)
 
 The evolution clearly demonstrates:
 
