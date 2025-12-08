@@ -649,6 +649,7 @@ class PhiManifoldExtractor:
         # Phi[5] : is the Stochastic noise term eta(t-1)*sigma(G(f) + M(f))
         # where G(t-1), M(t-1) are specific scalars representing gate and measurement disturbances at time t-1
         # where G(f) and M(f) are just flags indicating whether a gate or measurement was applied at time t-1
+        pass
         
 
 
