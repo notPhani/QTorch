@@ -640,7 +640,7 @@ class PhiManifoldExtractor:
         self.BaseLinePauliOffset = BaseLinePauliOffset
 
     def compute_phi_manifold(self, t:int):
-        # Phi manifold is a 7D feature vector per time step containing:
+        # Phi manifold is a 6D feature vector per time step containing:
         # Phi[0] : memory term (alpha - lambda)*phi(t-1)
         # Phi[1] : Decoherence approximation term beta*(L<phi(t-1)>)
         # Phi[2] : Disturbance approximation term kappa*(L<D(t-1)>); where D(t-1) being aG(t-1) + b(M(t-1))
