@@ -640,15 +640,7 @@ class PhiManifoldExtractor:
         self.BaseLinePauliOffset = BaseLinePauliOffset
 
     def compute_phi_manifold(self, t:int):
-        # Phi manifold is a 7D feature vector per time step containing:
-        # Phi[0] : memory term (alpha - lambda)*phi(t-1)
-        # Phi[1] : Decoherence approximation term beta*(L<phi(t-1)>)
-        # Phi[2] : Disturbance approximation term kappa*(L<D(t-1)>); where D(t-1) being aG(t-1) + b(M(t-1))
-        # Phi[3] : is the Uniform exponential fall off in the circuit epsilon*Sum over all neighbours of phi(t-1) times exp(-distance norm)
-        # Phi[4] : is the Non-linear interactions term rho*(phi(t-1))/(1 + phi(t-1)^2)
-        # Phi[5] : is the Stochastic noise term eta(t-1)*sigma(G(f) + M(f))
-        # where G(t-1), M(t-1) are specific scalars representing gate and measurement disturbances at time t-1
-        # where G(f) and M(f) are just flags indicating whether a gate or measurement was applied at time t-1
+        
         
 
 
