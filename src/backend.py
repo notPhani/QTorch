@@ -13,7 +13,7 @@ class StatevectorBackend:
         persistent_data: bool = True,
         angle_precision: float = 0.001,
         parametric_cache_size: int = 1024,
-        verbose: bool = True
+        verbose: bool = True,
     ):
         """
         Statevector backend with optional caching optimizations.
